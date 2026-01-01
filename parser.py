@@ -200,7 +200,8 @@ class Parser:
         print("INPUT")
         self.consumeOrAbort(TokenType.INPUT)
 
-        self.emitter.emit(f"float {self.curToken.text};\n")
+        if self.curToken.text not in self.symbols:
+            self.emitter.emit(f"float {self.curToken.text};\n")
         self.emitter.emit("scanf(\"%f\", ")
 
         self.symbols.add(self.curToken.text)
@@ -220,7 +221,7 @@ class Parser:
             elif self.checkToken(TokenType.NOTEQ):
                 self.emitter.emit(" != ")
             elif self.checkToken(TokenType.GT):
-                self.emitter.emit(" >")
+                self.emitter.emit(" > ")
             elif self.checkToken(TokenType.GTEQ):
                 self.emitter.emit(" >= ")
             elif self.checkToken(TokenType.LT):
