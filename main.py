@@ -1,11 +1,11 @@
 from lexer import *
 from emitter import *
 from parser import *
+import subprocess
 
 def main():
-    # f = open('fib_program.txt', 'r')
-    # scriptText = f.read()
-    scriptText = open('test_expressionSimple.txt', 'r').read()
+    scriptName = input("Please enter the name of the script (without .txt): ")
+    scriptText = open(f"{scriptName}.txt", 'r').read()
 
     lexer = Lexer(scriptText)
     emitter = Emitter("out.c")
@@ -14,6 +14,8 @@ def main():
     parser.program()
     emitter.writeFile()
     print("Parsing completed!")
+
+    subprocess.call(['bat', '-s', '--paging=never', './out.c'])
 
 
 main()

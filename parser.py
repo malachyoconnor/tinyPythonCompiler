@@ -66,7 +66,13 @@ class Parser:
 
     def program(self):
         print("PROGRAM")
+
+        self.emitter.emit("#include <stdio.h>\n\n")
+        self.emitter.emit("int main() {\n")
+        self.emitter.incrementTabDepth()
+
         while self.checkToken(TokenType.NEWLINE):
+            self.emitter.newline() # Obviously not necessary. But useful for debugging
             self.nextToken()
 
         while not self.checkToken(TokenType.EOF):
@@ -75,6 +81,9 @@ class Parser:
         for label in self.labelsGotoed:
             if label not in self.labelsDeclared:
                 self.abort("Attempting to GOTO to undeclared label: " + label)
+
+        self.emitter.decrementTabDepth()
+        self.emitter.emit("\n}")
 
     def statement(self):
         print("STATEMENT-", end='')
@@ -99,37 +108,54 @@ class Parser:
     def printStatement(self):
         print("PRINT")
         self.consumeOrAbort(TokenType.PRINT)
+        self.emitter.emit("printf(")
 
         if self.checkToken(TokenType.STRING):
+            self.emitter.emit(f"\"{self.curToken.text}\"")
             self.nextToken()
         else:
+            self.emitter.emit("\"%.2f\\n\", ")
             self.expression()
+
+        self.emitter.emit(");")
 
         self.nl()
 
     def ifStatement(self):
         print("IF")
         self.consumeOrAbort(TokenType.IF)
+        self.emitter.emit("if (")
         self.comparison()
+        self.emitter.emit(")")
         self.consumeOrAbort(TokenType.THEN)
+        self.emitter.emit("{")
+        self.emitter.incrementTabDepth()
         self.nl()
         # Possible statement
         while not self.checkToken(TokenType.ENDIF):
             self.statement()
         self.consumeOrAbort(TokenType.ENDIF)
+        self.emitter.decrementTabDepth()
+        self.emitter.emit("}")
         self.nl()
 
     def whileStatement(self):
         print("WHILE")
         self.consumeOrAbort(TokenType.WHILE)
+        self.emitter.emit("while (")
         self.comparison()
+        self.emitter.emit(") ")
         self.consumeOrAbort(TokenType.REPEAT)
+        self.emitter.emit("{")
+        self.emitter.incrementTabDepth()
         self.nl()
         # Possible statement
         while not self.checkToken(TokenType.ENDWHILE):
             self.statement()
 
         self.consumeOrAbort(TokenType.ENDWHILE)
+        self.emitter.decrementTabDepth()
+        self.emitter.emit("}")
         self.nl()
 
     def labelStatement(self):
@@ -137,6 +163,7 @@ class Parser:
         self.consumeOrAbort(TokenType.LABEL)
 
         self.labelsDeclared.add(self.curToken.text)
+        self.emitter.emit(f"{self.curToken.text}:")
         self.consumeOrAbort(TokenType.IDENT)
 
         self.nl()
@@ -144,8 +171,10 @@ class Parser:
     def gotoStatement(self):
         print("GOTO")
         self.consumeOrAbort(TokenType.GOTO)
+        self.emitter.emit("goto ")
 
         self.labelsGotoed.add(self.curToken.text)
+        self.emitter.emit(f"{self.curToken.text};")
 
         self.consumeOrAbort(TokenType.IDENT)
         self.nl()
@@ -153,19 +182,29 @@ class Parser:
     def letStatement(self):
         print("LET")
         self.consumeOrAbort(TokenType.LET)
+        if not self.curToken.text in self.symbols:
+            self.emitter.emit("float ")
 
         self.symbols.add(self.curToken.text)
+
+        self.emitter.emit(f"{self.curToken.text}")
         self.consumeOrAbort(TokenType.IDENT)
 
         self.consumeOrAbort(TokenType.EQ)
+        self.emitter.emit(" = ")
         self.expression()
+        self.emitter.emit(";")
         self.nl()
 
     def inputStatement(self):
         print("INPUT")
         self.consumeOrAbort(TokenType.INPUT)
 
+        self.emitter.emit(f"float {self.curToken.text};\n")
+        self.emitter.emit("scanf(\"%f\", ")
+
         self.symbols.add(self.curToken.text)
+        self.emitter.emit(f"&{self.curToken.text});")
         self.consumeOrAbort(TokenType.IDENT)
 
         self.nl()
@@ -174,30 +213,67 @@ class Parser:
         print("COMPARISON")
         self.expression()
         # (("==" | "!=" | ">" | ">=" | "<" | "<=") expression) +
-        while self.checkTokenInList(
-                [TokenType.EQEQ, TokenType.NOTEQ, TokenType.GT, TokenType.GTEQ, TokenType.LT, TokenType.LTEQ]):
+        while self.checkTokenInList([TokenType.EQEQ, TokenType.NOTEQ, TokenType.GT,
+                                     TokenType.GTEQ, TokenType.LT, TokenType.LTEQ]):
+            if self.checkToken(TokenType.EQEQ):
+                self.emitter.emit(" == ")
+            elif self.checkToken(TokenType.NOTEQ):
+                self.emitter.emit(" != ")
+            elif self.checkToken(TokenType.GT):
+                self.emitter.emit(" >")
+            elif self.checkToken(TokenType.GTEQ):
+                self.emitter.emit(" >= ")
+            elif self.checkToken(TokenType.LT):
+                self.emitter.emit(" < ")
+            elif self.checkToken(TokenType.LTEQ):
+                self.emitter.emit(" <= ")
+
             self.nextToken()
             self.expression()
 
     def expression(self):
         print("EXPRESSION")
+        self.emitter.emit("(")
         self.term()
 
         while self.checkToken(TokenType.MINUS) or self.checkToken(TokenType.PLUS):
+            if self.checkToken(TokenType.MINUS):
+                self.emitter.emit("-")
+            elif self.checkToken(TokenType.PLUS):
+                self.emitter.emit("+")
+            else:
+                self.abort("How did we get here???")
             self.nextToken()
             self.term()
+
+        self.emitter.emit(")")
 
     def term(self):
         print("TERM")
         self.unary()
 
         while self.checkToken(TokenType.SLASH) or self.checkToken(TokenType.ASTERISK):
+
+            if self.checkToken(TokenType.SLASH):
+                self.emitter.emit("/")
+            elif self.checkToken(TokenType.ASTERISK):
+                self.emitter.emit("*")
+            else:
+                self.abort("How did we get here???")
+
             self.nextToken()
             self.unary()
 
     def unary(self):
         print("UNARY")
         if self.checkToken(TokenType.PLUS) or self.checkToken(TokenType.MINUS):
+            if self.checkToken(TokenType.MINUS):
+                self.emitter.emit("-")
+            elif self.checkToken(TokenType.PLUS):
+                self.emitter.emit("+")
+            else:
+                self.abort("How did we get here???")
+
             self.nextToken()
         self.primary()
 
@@ -210,6 +286,7 @@ class Parser:
             if self.curToken.text not in self.symbols:
                 self.abort(f"Referencing variable before assignment: {self.curToken.text}")
 
+        self.emitter.emit(self.curToken.text)
         self.nextToken()
 
     def nl(self):
@@ -217,4 +294,5 @@ class Parser:
         if not self.checkToken(TokenType.NEWLINE):
             self.abort("Expected newline token!")
         while self.curToken.kind == TokenType.NEWLINE:
+            self.emitter.emit("\n")
             self.nextToken()
