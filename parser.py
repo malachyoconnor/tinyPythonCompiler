@@ -71,11 +71,10 @@ class Parser:
         self.emitter.emit("int main() {\n")
         self.emitter.incrementTabDepth()
 
-        while self.checkToken(TokenType.NEWLINE):
-            self.emitter.newline() # Obviously not necessary. But useful for debugging
-            self.nextToken()
-
         while not self.checkToken(TokenType.EOF):
+            while self.checkToken(TokenType.NEWLINE):
+                self.emitter.newline()  # Obviously not necessary. But useful for debugging
+                self.nextToken()
             self.statement()
 
         for label in self.labelsGotoed:

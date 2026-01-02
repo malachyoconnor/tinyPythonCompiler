@@ -118,6 +118,14 @@ class Lexer:
         elif self.currentChar == '#':
             self.skipComment()
             return self.getToken()
+        elif self.currentChar == '=' and self.peek() == '=':
+            result = Token('==', TokenType.EQEQ)
+        elif self.currentChar == '!' and self.peek() == '=':
+            result = Token('!=', TokenType.NOTEQ)
+        elif self.currentChar == '>' and self.peek() == '=':
+            result = Token('>=', TokenType.GTEQ)
+        elif self.currentChar == '<' and self.peek() == '=':
+            result = Token('<=', TokenType.LTEQ)
         elif self.currentChar == '+':
             result = Token('+', TokenType.PLUS)
         elif self.currentChar == '-':
@@ -132,15 +140,6 @@ class Lexer:
             result = Token('>', TokenType.GT)
         elif self.currentChar == '<':
             result = Token('<', TokenType.LT)
-        elif self.currentChar == '=' and self.peek() == '=':
-            result = Token('==', TokenType.EQEQ)
-        elif self.currentChar == '!' and self.peek() == '=':
-            result = Token('!=', TokenType.NOTEQ)
-        elif self.currentChar == '>' and self.peek() == '=':
-            result = Token('>=', TokenType.GTEQ)
-        elif self.currentChar == '<' and self.peek() == '=':
-            result = Token('<=', TokenType.LTEQ)
-
         elif self.currentChar.isdigit():
             fullNumber = ""
             decimalUsed = False
